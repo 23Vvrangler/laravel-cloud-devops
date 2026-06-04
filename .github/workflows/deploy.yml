@@ -50,7 +50,7 @@ jobs:
           extensions: pdo, pdo_pgsql, redis, zip, bcmath, gd
 
       - name: Instalar dependencias
-        run: composer install --no-interaction --prefer-dist --ignore-plataform-reqs
+        run: composer install --no-interaction --prefer-dist --ignore-platform-reqs
 
       - name: Configurar entorno
         run: |
