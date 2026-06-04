@@ -1,0 +1,113 @@
+name: Laravel Cloud DevOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests y Calidad de Código
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack:3.8
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,sqs,lambda
+          DEBUG: 1
+
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: laravel
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, redis, zip, bcmath, gd
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Configurar entorno
+        run: |
+          cp .env.example .env
+          echo "DB_CONNECTION=pgsql" >> .env
+          echo "DB_HOST=localhost" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_DATABASE=app" >> .env
+          echo "DB_USERNAME=laravel" >> .env
+          echo "DB_PASSWORD=secret" >> .env
+          echo "AWS_ACCESS_KEY_ID=test" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=test" >> .env
+          echo "AWS_DEFAULT_REGION=us-east-1" >> .env
+          echo "AWS_BUCKET=laravel-bucket" >> .env
+          echo "AWS_ENDPOINT=http://localhost:4566" >> .env
+          echo "AWS_USE_PATH_STYLE_ENDPOINT=true" >> .env
+          echo "REDIS_HOST=localhost" >> .env
+          php artisan key:generate
+
+      - name: Crear recursos en LocalStack
+        run: |
+          pip install awscli-local
+          sleep 15
+          awslocal s3 mb s3://laravel-bucket
+          awslocal sqs create-queue --queue-name laravel-queue
+
+      - name: Correr migraciones
+        run: php artisan migrate --force
+
+      - name: Ejecutar tests
+        run: php artisan test
+
+  deploy:
+    name: Despliegue Simulado EC2
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Simular despliegue EC2
+        run: |
+          echo "======================================"
+          echo "SIMULANDO DESPLIEGUE EN EC2"
+          echo "======================================"
+          echo "Repositorio: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Rama: ${{ github.ref_name }}"
+          echo "Fecha: $(date)"
+          echo ""
+          echo "Pasos que se ejecutarían en EC2 real:"
+          echo "1. SSH a instancia EC2 Ubuntu t2.micro"
+          echo "2. git pull origin main"
+          echo "3. docker compose -f compose.dev.yaml up -d --build"
+          echo "4. php artisan migrate --force"
+          echo "5. aws s3 mb s3://laravel-bucket"
+          echo "======================================"
+          echo "Despliegue simulado exitosamente"

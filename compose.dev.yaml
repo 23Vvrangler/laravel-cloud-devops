@@ -1,24 +1,20 @@
 services:
   web:
-    image: nginx:latest # Using the default Nginx image with custom configuration.
+    image: nginx:latest
     volumes:
-      # Mount the application code for live updates
       - ./:/var/www
-      # Mount the Nginx configuration file
       - ./docker/development/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      # Map port 80 inside the container to the port specified by 'NGINX_PORT' on the host machine
-      - "80:80"
+      - "8080:80"
     environment:
       - NGINX_HOST=localhost
     networks:
       - laravel-development
     depends_on:
       php-fpm:
-        condition: service_started  # Wait for php-fpm to start
+        condition: service_started
 
   php-fpm:
-    # For the php-fpm service, we will create a custom image to install the necessary PHP extensions and setup proper permissions.
     build:
       context: .
       dockerfile: ./docker/common/php-fpm/Dockerfile
@@ -33,20 +29,17 @@ services:
         XDEBUG_LOG: /dev/stdout
         XDEBUG_LOG_LEVEL: 0
     env_file:
-      # Load the environment variables from the Laravel application
       - .env
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
-      # Mount the application code for live updates
       - ./:/var/www
     networks:
       - laravel-development
     depends_on:
       postgres:
-        condition: service_started  # Wait for postgres to start
+        condition: service_started
 
   workspace:
-   # For the workspace service, we will also create a custom image to install and setup all the necessary stuff.
     build:
       context: .
       dockerfile: ./docker/development/workspace/Dockerfile
@@ -61,8 +54,8 @@ services:
         XDEBUG_LOG_LEVEL: 0
     ports:
       - '${VITE_PORT:-5173}:5173'
-    tty: true  # Enables an interactive terminal
-    stdin_open: true  # Keeps standard input open for 'docker exec'
+    tty: true
+    stdin_open: true
     env_file:
       - .env
     volumes:
@@ -88,8 +81,22 @@ services:
     networks:
       - laravel-development
 
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,sqs,lambda
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+    networks:
+      - laravel-development
+
 networks:
   laravel-development:
 
 volumes:
   postgres-data-development:
+  localstack-data:
