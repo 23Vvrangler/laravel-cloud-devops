@@ -46,11 +46,11 @@ jobs:
       - name: Configurar PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.2'
           extensions: pdo, pdo_pgsql, redis, zip, bcmath, gd
 
       - name: Instalar dependencias
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --ignore-plataform-reqs
 
       - name: Configurar entorno
         run: |
